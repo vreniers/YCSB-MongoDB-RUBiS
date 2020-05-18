@@ -25,19 +25,21 @@ public class DataModel {
 	private static int nrOfRegions = 4;
 
 	public static void main(String[] args) {
-		System.out.println(User.getItemIds(1));
-		System.out.println(User.getItemIds(2));
-
-		System.out.println(User.getBidIds(1));
-
-		System.out.println(Item.getUserId(0));
-		System.out.println(Item.getUserId(4));
-		System.out.println(Item.getUserId(10));
+//		System.out.println(User.getItemIds(0));
+//		System.out.println(User.getItemIds(1));
+//
+//		System.out.println(User.getBidIds(1));
+//
+//		System.out.println(Item.getUserId(0));
+//		System.out.println(Item.getUserId(4));
+//		System.out.println(Item.getUserId(10));
 		
 		DocumentGenerator gen = DocumentGenerator.getInstance();
 		
-		System.out.println(User.generateDocument(1));
-		System.out.println(new User(1).generateDocuments());
+//		System.out.println(User.generateDocument(1));
+//		System.out.println(new User(1).generateDocuments());
+		
+		gen.createUser();
 	}
 
 	/**
@@ -54,6 +56,12 @@ public class DataModel {
 		private static DocumentGenerator instance = null;
 
 		private int recordId = 0;
+		
+		public DocumentGenerator() {
+			// create Regions.
+			for(int i=0; i < nrOfRegions; i++)
+				persistDocuments(new Region(i).generateDocuments());
+		}
 
 		public static DocumentGenerator getInstance() {
 			if (instance == null)
@@ -75,7 +83,7 @@ public class DataModel {
 			int userId = recordId;
 			
 			persistDocuments(new User(userId).generateDocuments());
-
+			
 			List<Integer> itemIds = User.getItemIds(userId);
 			createItems(itemIds);
 
@@ -107,7 +115,8 @@ public class DataModel {
 		 * @param documents
 		 */
 		private void persistDocuments(Map<String, Document> documents) {
-			//TODO
+			//TODO persist to DB
+			System.out.println(documents);
 		}
 
 	}
@@ -220,8 +229,8 @@ public class DataModel {
 		public static List<Integer> getItemIds(int userId) {
 			ArrayList<Integer> itemIds = new ArrayList<Integer>();
 
-			int startId = (userId - 1) * userItems;
-			int endId = userId * (userItems);
+			int startId = userId  * userItems;
+			int endId = (userId+1) * (userItems);
 
 			for (int i = startId; i < endId; i++) {
 				itemIds.add(i);
@@ -233,8 +242,8 @@ public class DataModel {
 		public static List<Integer> getBidIds(int userId) {
 			ArrayList<Integer> bidIds = new ArrayList<Integer>();
 
-			int startId = (userId - 1) * userBids;
-			int endId = userId * (userBids);
+			int startId = userId * userBids;
+			int endId = (userId+1) * (userBids);
 
 			for (int i = startId; i < endId; i++) {
 				bidIds.add(i);
@@ -246,8 +255,8 @@ public class DataModel {
 		public static List<Integer> getCommentIds(int userId) {
 			ArrayList<Integer> commentIds = new ArrayList<Integer>();
 
-			int startId = (userId - 1) * userComments;
-			int endId = userId * (userComments);
+			int startId = (userId) * userComments;
+			int endId = (userId+1) * (userComments);
 
 			for (int i = startId; i < endId; i++) {
 				commentIds.add(i);
@@ -321,8 +330,8 @@ public class DataModel {
 		public static List<Integer> getBidIds(int itemId) {
 			ArrayList<Integer> bidIds = new ArrayList<Integer>();
 
-			int startId = (itemId - 1) * itemBids;
-			int endId = itemId * (itemBids);
+			int startId = (itemId) * itemBids;
+			int endId = (itemId+1) * (itemBids);
 
 			for (int i = startId; i < endId; i++) {
 				bidIds.add(i);
@@ -334,8 +343,8 @@ public class DataModel {
 		public static List<Integer> getCommentIds(int itemId) {
 			ArrayList<Integer> commentIds = new ArrayList<Integer>();
 
-			int startId = (itemId - 1) * itemComments;
-			int endId = itemId * (itemComments);
+			int startId = itemId * itemComments;
+			int endId = (itemId+1) * (itemComments);
 
 			for (int i = startId; i < endId; i++) {
 				commentIds.add(i);
