@@ -318,6 +318,9 @@ public class DataModel {
 			// create Items | Comments
 			documentPerCollection.put("ItemsComments", generateDocumentItemsComments(this.itemId));
 			
+			// create Items | Users
+			documentPerCollection.put("ItemsUsers", generateDocumentItemsUsers(this.itemId));
+			
 			
 			return documentPerCollection;
 		}
@@ -329,6 +332,14 @@ public class DataModel {
 			doc.put("id_seller", getUserId(itemId));
 			
 			return doc;
+		}
+		
+		public static Document generateDocumentItemsUsers(int itemId) {
+			Document itemDoc = generateDocument(itemId);
+			
+			itemDoc.append("users", User.generateDocument(getUserId(itemId)));
+			
+			return itemDoc;
 		}
 		
 		public static Document generateDocumentItemsComments(int itemId) {
