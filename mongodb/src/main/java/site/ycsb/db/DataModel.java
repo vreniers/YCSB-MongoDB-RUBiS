@@ -1,6 +1,7 @@
 package site.ycsb.db;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -32,6 +33,11 @@ public class DataModel {
 		System.out.println(Item.getUserId(0));
 		System.out.println(Item.getUserId(4));
 		System.out.println(Item.getUserId(10));
+		
+		DocumentGenerator gen = DocumentGenerator.getInstance();
+		
+		System.out.println(User.generateDocument(1));
+		System.out.println(new User(1).generateDocuments());
 	}
 
 	/**
@@ -58,11 +64,17 @@ public class DataModel {
 
 		/**
 		 * One user triggers the creation of several items, bids, comments, etc.
+		 * 
+		 * [ items672 [ bids62 [ users-532 ] ] ]
+		 * [ items672 [ users-532 [ regions756 ] ] ]
+		 * [ comments486 ]
+		 * [ bids62 [ users-532 [ items672 ] ] ]
+		 * [ users-532 [ comments486 ] ]
 		 */
 		public void createUser() {
 			int userId = recordId;
 			
-			new User(userId).persistDocuments();
+			persistDocuments(new User(userId).generateDocuments());
 
 			List<Integer> itemIds = User.getItemIds(userId);
 			createItems(itemIds);
@@ -76,28 +88,46 @@ public class DataModel {
 
 		private void createBids(List<Integer> bidIds) {
 			for (int bidId: bidIds)
-				new Bid(bidId).persistDocuments();
+				persistDocuments(new Bid(bidId).generateDocuments());
 		}
 
 		private void createComments(List<Integer> commentIds) {
-			for (int commentId : commentIds) {
-				new Comment(commentId).persistDocuments();
-			}
+			for (int commentId : commentIds)
+				persistDocuments(new Comment(commentId).generateDocuments());
 		}
 
-		public void createItems(List<Integer> itemIds) {
+		private void createItems(List<Integer> itemIds) {
 			for (int itemId : itemIds)
-				new Item(itemId).persistDocuments();
+				persistDocuments(new Item(itemId).generateDocuments());
+		}
+		
+		/**
+		 * Store per collection (key), the correct document in the Database.
+		 * 
+		 * @param documents
+		 */
+		private void persistDocuments(Map<String, Document> documents) {
+			//TODO
 		}
 
 	}
 	
+	/**
+	 * TODO: naming convention of generate: 
+	 * always generateItemsRegions (meervoud) of ook
+	 *        generateItemRegion
+	 *        
+	 * @author vincent
+	 *
+	 */
 	public interface DocumentModel{
 		
 		/**
-		 * Persist all possible variants of the document and its children.
+		 * Creates all possible variants of the document in various collections, where it is the TOP-level document.
+		 * 
+		 * Each variant may embed additional documents.
 		 */
-		public void persistDocuments();
+		public Map<String, Document> generateDocuments();
 	
 	}
 	
@@ -116,22 +146,74 @@ public class DataModel {
 		}
 		
 		@Override
-		public void persistDocuments() {
+		public Map<String, Document> generateDocuments() {
+			Map<String, Document> documentPerCollection = new HashMap<String, Document>();
 			
+			// create Users
+			documentPerCollection.put("Users", generateDocument(this.userId));
+			
+			// create UsersComments
+			documentPerCollection.put("UserComments", generateDocumentUserComments(this.userId));
+			
+			return documentPerCollection;
 		}
 		
 		/**
-		 * Create 1-level user document
+		 * Create 1-level User document
 		 */
-		public static Document generateDocument(int userId) {
-			Document toInsert = new Document("_id", userId);
+		public static Document generateDocument(int id) {
+			Document doc = new Document("_id", id);
 		    
-			toInsert.put("firstName", "name");
+			doc.put("firstName", "name");
 			
-			return toInsert;
+			//TODO embed references(?)
+			
+			return doc;
 		}
 		
-		public int getRegionId(int userId) {
+		/**
+		 * Creates User|Comments 
+		 */
+		public static Document generateDocumentUserComments(int userId) {
+			Document userComments = generateDocument(userId);
+			
+			// Add comments
+			ArrayList<Document> comments = new ArrayList<Document>();
+			
+			for(int commentId: getCommentIds(userId))
+				comments.add(Comment.generateDocument(commentId));
+			
+			userComments.put("comments", comments);
+			
+			return userComments;
+		}
+		
+		public static Document generateDocumentUsersRegions(int userId) {
+			Document userDoc = generateDocument(userId);
+			
+			// Add region
+			Document region = Region.generateDocument(User.getRegionId(userId));
+			userDoc.append("region", region);
+			
+			return userDoc;
+		}
+		
+		public static Document generateDocumentUserItems(int userId) {
+			Document userDoc = generateDocument(userId);
+			
+			// Add items
+			ArrayList<Document> items = new ArrayList<Document>();
+			
+			for(int itemId: getItemIds(userId)) {
+				items.add(Item.generateDocument(itemId));
+			}
+			
+			userDoc.append("items", items);
+			
+			return userDoc;
+		}
+		
+		public static int getRegionId(int userId) {
 			return userId % nrOfRegions;
 		}
 
@@ -184,11 +266,52 @@ public class DataModel {
 		}
 		
 		@Override
-		public void persistDocuments() {
-			// TODO Auto-generated method stub
+		public Map<String, Document> generateDocuments() {
+			Map<String, Document> documentPerCollection = new HashMap<String, Document>();
 			
+			// create Items
+			documentPerCollection.put("Items", generateDocument(this.itemId));
+			
+			// create Items | Bids | Users
+			documentPerCollection.put("ItemsBidsUsers", generateDocumentItemsBidsUsers(this.itemId));
+			
+			// create Items | Users | Regions
+			documentPerCollection.put("itemsUsersRegions", generateDocumentItemsUsersRegions(this.itemId));
+			
+			return documentPerCollection;
 		}
 		
+		public static Document generateDocument(int itemId) {
+			Document doc = new Document("_id", itemId);
+		    
+			doc.put("productName", "name");
+			
+			return doc;
+		}
+		
+		public static Document generateDocumentItemsBidsUsers(int itemId) {
+			Document doc = generateDocument(itemId);
+			ArrayList<Document> bidUsers = new ArrayList<Document>();
+			
+			// for each Bid get BidUser
+			for(int bidId: getBidIds(itemId)) {
+				bidUsers.add(Bid.generateDocumentBidUsers(bidId));
+			}
+			
+			doc.append("bids", bidUsers);
+			
+			return doc;
+		}
+		
+		public static Document generateDocumentItemsUsersRegions(int itemId) {
+			Document itemDoc = generateDocument(itemId);
+			Document userRegion = User.generateDocumentUsersRegions(getUserId(itemId));
+			
+			itemDoc.append("user", userRegion);
+			
+			return itemDoc;
+		}
+
 		public static int getUserId(int itemId) {
 
 			int userId = itemId / userItems;
@@ -233,10 +356,44 @@ public class DataModel {
 		}
 		
 		@Override
-		public void persistDocuments() {
+		public Map<String, Document> generateDocuments() {
+			Map<String, Document> documentPerCollection = new HashMap<String, Document>();
 			
+			// create Bids
+			documentPerCollection.put("Bids", generateDocument(this.bidId));
+			
+			// Create Bids|Users|Items
+			documentPerCollection.put("BidsUsersItems", generateDocumentBidsUsersItems(bidId));
+			
+			return documentPerCollection;
 		}
 		
+		private static Document generateDocument(int bidId) {
+			Document doc = new Document("_id", bidId);
+		    
+			doc.put("price", "randomPrice");
+			
+			return doc;
+		}
+		
+		public static Document generateDocumentBidUsers(int bidId) {
+			Document bidUsers = generateDocument(bidId);
+			
+			int userId = getUserId(bidId);
+			bidUsers.append("user", User.generateDocument(userId));
+			
+			return bidUsers;
+		}
+		
+		public static Document generateDocumentBidsUsersItems(int bidId) {
+			Document bidUserItemsDoc = generateDocument(bidId);
+			Document userItems = User.generateDocumentUserItems(getUserId(bidId));
+			
+			bidUserItemsDoc.append("users", userItems);
+			
+			return bidUserItemsDoc;
+		}
+
 		public static int getUserId(int bidId) {
 			int userId = bidId / userBids;
 			return userId;
@@ -257,8 +414,25 @@ public class DataModel {
 		}
 		
 		@Override
-		public void persistDocuments() {
+		public Map<String, Document> generateDocuments() {
+			Map<String, Document> documentPerCollection = new HashMap<String, Document>();
 			
+			// create Comments
+			documentPerCollection.put("Comments", generateDocument(this.commentId));
+			
+			
+			return documentPerCollection;
+		}
+		
+		/**
+		 * Create 1-level comment document
+		 */
+		public static Document generateDocument(int id) {
+			Document doc = new Document("_id", id);
+		    
+			doc.put("commentText", "randomText");
+			
+			return doc;
 		}
 
 		public static int getUserId(int commentId) {
@@ -269,6 +443,37 @@ public class DataModel {
 		public static int getItemId(int commentId) {
 			int itemId = commentId / itemComments;
 			return itemId;
+		}
+	}
+	
+	public static class Region implements DocumentModel {
+		
+		private final int regionId;
+		
+		public Region(int regionId) {
+			this.regionId = regionId;
+		}
+		
+		@Override
+		public Map<String, Document> generateDocuments() {
+			Map<String, Document> documentPerCollection = new HashMap<String, Document>();
+			
+			// create Regions
+			documentPerCollection.put("Regions", generateDocument(this.regionId));
+			
+			
+			return documentPerCollection;
+		}
+		
+		/**
+		 * Create 1-level comment document
+		 */
+		public static Document generateDocument(int id) {
+			Document doc = new Document("_id", id);
+		    
+			doc.put("regionName", "randomRegion");
+			
+			return doc;
 		}
 	}
 }
