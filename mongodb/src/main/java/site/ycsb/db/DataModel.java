@@ -2,8 +2,10 @@ package site.ycsb.db;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.bson.Document;
 
@@ -39,7 +41,7 @@ public class DataModel {
 //		System.out.println(User.generateDocument(1));
 //		System.out.println(new User(1).generateDocuments());
 		
-		gen.createUser();
+		gen.createRecords();
 	}
 
 	/**
@@ -56,12 +58,6 @@ public class DataModel {
 		private static DocumentGenerator instance = null;
 
 		private int recordId = 0;
-		
-		public DocumentGenerator() {
-			// create Regions.
-			for(int i=0; i < nrOfRegions; i++)
-				persistDocuments(new Region(i).generateDocuments());
-		}
 
 		public static DocumentGenerator getInstance() {
 			if (instance == null)
@@ -69,9 +65,26 @@ public class DataModel {
 
 			return instance;
 		}
+		
+		/**
+		 * Should only be created once on initialization.
+		 * @return
+		 */
+		public Map<String, Set<Document>> getRegions() {
+			Map<String,Set<Document>> regionDoc = new HashMap<String, Set<Document>>();
+			regionDoc.put("Regions", new HashSet<Document>());
+			
+			// create Regions.
+			for(int i=0; i < nrOfRegions; i++)
+				merge(regionDoc, new Region(i).generateDocuments());
+			
+			return regionDoc;
+		}
 
 		/**
-		 * One user triggers the creation of several items, bids, comments, etc.
+		 * Starts with a single user creation.
+		 * 
+		 * One user creation triggers the creation of several items, bids, comments, etc.
 		 * 
 		 * [ items672 [ bids62 [ users-532 ] ] ]
 		 * [ items672 [ users-532 [ regions756 ] ] ]
@@ -79,44 +92,54 @@ public class DataModel {
 		 * [ bids62 [ users-532 [ items672 ] ] ]
 		 * [ users-532 [ comments486 ] ]
 		 */
-		public void createUser() {
+		public Map<String, Set<Document>> createRecords() {
+			Map<String, Set<Document>> generatedDocuments = new HashMap<String, Set<Document>>();
+			
 			int userId = recordId;
 			
-			persistDocuments(new User(userId).generateDocuments());
+			createUser(userId, generatedDocuments);
 			
 			List<Integer> itemIds = User.getItemIds(userId);
-			createItems(itemIds);
+			createItems(itemIds, generatedDocuments);
 
 			List<Integer> commentIds = User.getCommentIds(userId);
-			createComments(commentIds);
+			createComments(commentIds,  generatedDocuments);
 			
 			List<Integer> bidIds = User.getBidIds(userId);
-			createBids(bidIds);
-		}
-
-		private void createBids(List<Integer> bidIds) {
-			for (int bidId: bidIds)
-				persistDocuments(new Bid(bidId).generateDocuments());
-		}
-
-		private void createComments(List<Integer> commentIds) {
-			for (int commentId : commentIds)
-				persistDocuments(new Comment(commentId).generateDocuments());
-		}
-
-		private void createItems(List<Integer> itemIds) {
-			for (int itemId : itemIds)
-				persistDocuments(new Item(itemId).generateDocuments());
+			createBids(bidIds,  generatedDocuments);
+			
+			return generatedDocuments;
 		}
 		
 		/**
-		 * Store per collection (key), the correct document in the Database.
-		 * 
-		 * @param documents
+		 * Merge document results in similar collections.
 		 */
-		private void persistDocuments(Map<String, Document> documents) {
-			//TODO persist to DB
-			System.out.println(documents);
+		private void merge(Map<String, Set<Document>> generatedDocuments, Map<String, Document> generatedDoc) {
+			for(String collection: generatedDoc.keySet()) {
+				if(!generatedDocuments.containsKey(collection)) 
+					generatedDocuments.put(collection, new HashSet<Document>());
+				
+				generatedDocuments.get(collection).add(generatedDoc.get(collection));
+			}
+		}
+		
+		private void createUser(int userId, Map<String, Set<Document>> generatedDocuments) {			
+			merge(generatedDocuments, new User(userId).generateDocuments());			
+		}		
+
+		private void createBids(List<Integer> bidIds, Map<String, Set<Document>> generatedDocuments) {
+			for (int bidId: bidIds)
+				merge(generatedDocuments, new Bid(bidId).generateDocuments());
+		}
+
+		private void createComments(List<Integer> commentIds, Map<String, Set<Document>> generatedDocuments) {
+			for (int commentId : commentIds)
+				merge(generatedDocuments, new Comment(commentId).generateDocuments());
+		}
+
+		private void createItems(List<Integer> itemIds, Map<String, Set<Document>> generatedDocuments) {
+			for (int itemId : itemIds)
+				merge(generatedDocuments, new Item(itemId).generateDocuments());
 		}
 
 	}
@@ -174,8 +197,7 @@ public class DataModel {
 			Document doc = new Document("_id", id);
 		    
 			doc.put("firstName", "name");
-			
-			//TODO embed references(?)
+			doc.put("id_region", getRegionId(id));
 			
 			return doc;
 		}
@@ -294,6 +316,7 @@ public class DataModel {
 			Document doc = new Document("_id", itemId);
 		    
 			doc.put("productName", "name");
+			doc.put("id_seller", getUserId(itemId));
 			
 			return doc;
 		}
@@ -381,6 +404,8 @@ public class DataModel {
 			Document doc = new Document("_id", bidId);
 		    
 			doc.put("price", "randomPrice");
+			doc.put("id_user", getUserId(bidId));
+			doc.put("id_item", getItemId(bidId));
 			
 			return doc;
 		}
@@ -436,10 +461,12 @@ public class DataModel {
 		/**
 		 * Create 1-level comment document
 		 */
-		public static Document generateDocument(int id) {
-			Document doc = new Document("_id", id);
+		public static Document generateDocument(int commentId) {
+			Document doc = new Document("_id", commentId);
 		    
 			doc.put("commentText", "randomText");
+			doc.put("id_user", getUserId(commentId));
+			doc.put("id_item", getItemId(commentId));
 			
 			return doc;
 		}
