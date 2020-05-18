@@ -96,6 +96,7 @@ public class DataModel {
 			Map<String, Set<Document>> generatedDocuments = new HashMap<String, Set<Document>>();
 			
 			int userId = recordId;
+			recordId++;
 			
 			createUser(userId, generatedDocuments);
 			
@@ -107,6 +108,8 @@ public class DataModel {
 			
 			List<Integer> bidIds = User.getBidIds(userId);
 			createBids(bidIds,  generatedDocuments);
+			
+			System.out.println(generatedDocuments);
 			
 			return generatedDocuments;
 		}

@@ -251,7 +251,12 @@ public class MongoDbClient extends DB {
 				MongoCollection<Document> collection = database.getCollection(collectionName);
 				
 				for(Document recordDocument: recordsPerCollection.get(collectionName)) {
+					System.out.println(collectionName);
+					System.out.println(recordDocument);
 					collection.insertOne(recordDocument);
+					
+					// collection.replaceOne(new Document("_id", recordDocument.get("_id")),
+					//		 recordDocument, UPDATE_WITH_UPSERT);
 				}
 			}
 			
