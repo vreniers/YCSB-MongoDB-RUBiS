@@ -1,6 +1,8 @@
 package site.ycsb.db.RUBiS;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 
 import org.bson.Document;
 
@@ -162,17 +164,9 @@ public class WorkloadModel {
 	 */
 	public static Document getQueryUsersBidsItemsUsersAlt(MongoDatabase database, int userId) {
 		MongoCollection<Document> collection = database.getCollection("ItemsUsersRegions");
-		Document query = new Document("users._id", userId);
 		
 		//  db.BidsUsersItems.aggregate([ { $lookup: { from:"ItemsUsersRegions", localField:"id_item", foreignField:"_id", as:"UsersBidsItemsUsers" } } ] )
 		// db.BidsUsersItems.aggregate([ {$match:{"users._id":0}}, { $lookup: { from:"ItemsUsersRegions", localField:"id_item", foreignField:"_id", as:"UsersBidsItemsUsers" } } ] )
-		Block<Document> printBlock = new Block<Document>() {
-	        @Override
-	        public void apply(final Document document) {
-	            System.out.println(document.toJson());
-	        }
-	    };
-	    
 		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
 				 Aggregates.match(Filters.eq("users._id", userId)),
 	              Aggregates.lookup("ItemsUsersRegions", "id_item", "_id", "UsersBidsItemsUsers")
@@ -194,5 +188,57 @@ public class WorkloadModel {
 	}
 	
 	
+	/**
+	 * ===============================
+	 * Normalized Query Plans
+	 * Bids -> Users
+	 * Bids -> Items
+	 * 
+	 * Users->Regions
+	 * Users->Items
+	 * Users->Bids->items->User
+	 * Users->Comments
+	 * Users->Bids
+	 * 
+	 * Items->Comments->Users
+	 * Items->Comments
+	 * Items->users
+	 * Items->Bids
+	 * ===============================
+	 */
+	private static void getNormalizedQueries(MongoDatabase db, int userId) {
+		getNormalizedQuery(db, "Bids", "Users", "id_user", "_id", User.getBidIds(userId).get(0));
+		getNormalizedQuery(db, "Bids", "Items", "id_item", "_id", User.getBidIds(userId).get(0));
+		
+		getNormalizedQuery(db, "Users", "Regions", "id_region", "_id", userId);
+		getNormalizedQuery(db, "Users", "Items", "_id", "id_seller", userId);
+		getNormalizedQuery(db, "Users", "Comments", "_id", "id_user", userId);
+		getNormalizedQuery(db, "Users", "Bids", "_id", "id_user", userId);
+		
+		getNormalizedQuery(db, "Items", "Users", "id_seller", "_id", User.getItemIds(userId).get(0));
+		getNormalizedQuery(db, "Items", "Comments", "_id", "id_item", User.getItemIds(userId).get(0));
+		getNormalizedQuery(db, "Items", "Bids", "_id", "id_item", User.getItemIds(userId).get(0));
+		
+		// Two longer cases.
+		//TODO: Users->Bids->Items->User
+		//TODO: Items->Comments->User
+	}
+
+	private static Document getNormalizedQuery(MongoDatabase db, String collectionOne, String collectionTwo, String localKey, String foreignKey, int id) {
+		MongoCollection<Document> collection = db.getCollection(collectionOne);
+		Document query = new Document("_id", id);
+		
+		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
+				 Aggregates.match(Filters.eq("_id", id)),
+	             Aggregates.lookup(collectionTwo, localKey, foreignKey, "JOIN")
+				)
+		);
+		
+		Document queryResult = aggIterable.first();
+		
+		System.out.println(queryResult);
+		
+		return queryResult;
+	}
 	
 }

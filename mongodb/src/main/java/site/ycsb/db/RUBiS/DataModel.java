@@ -315,6 +315,9 @@ public class DataModel {
 			// create Items | Users | Regions
 			documentPerCollection.put("ItemsUsersRegions", generateDocumentItemsUsersRegions(this.itemId));
 			
+			// create Items | Comments
+			documentPerCollection.put("ItemsComments", generateDocumentItemsComments(this.itemId));
+			
 			
 			return documentPerCollection;
 		}
@@ -326,6 +329,20 @@ public class DataModel {
 			doc.put("id_seller", getUserId(itemId));
 			
 			return doc;
+		}
+		
+		public static Document generateDocumentItemsComments(int itemId) {
+			Document itemDoc = generateDocument(itemId);
+			ArrayList<Document> comments = new ArrayList<Document>();
+			
+			// Add each bid
+			for(int commentId: getCommentIds(itemId)) {
+				comments.add(Comment.generateDocument(commentId));
+			}
+			
+			itemDoc.append("comments", comments);
+			
+			return itemDoc;
 		}
 		
 		public static Document generateDocumentItemsBids(int itemId) {
@@ -348,7 +365,7 @@ public class DataModel {
 			
 			// for each Bid get BidUser
 			for(int bidId: getBidIds(itemId)) {
-				bidUsers.add(Bid.generateDocumentBidUsers(bidId));
+				bidUsers.add(Bid.generateDocumentBidsUsers(bidId));
 			}
 			
 			doc.append("bids", bidUsers);
@@ -415,6 +432,9 @@ public class DataModel {
 			// create Bids
 			documentPerCollection.put("Bids", generateDocument(this.bidId));
 			
+			// create Bids|Users
+			documentPerCollection.put("BidsUsers", generateDocumentBidsUsers(this.bidId));
+			
 			// Create Bids|Users|Items
 			documentPerCollection.put("BidsUsersItems", generateDocumentBidsUsersItems(bidId));
 			
@@ -431,7 +451,7 @@ public class DataModel {
 			return doc;
 		}
 		
-		public static Document generateDocumentBidUsers(int bidId) {
+		public static Document generateDocumentBidsUsers(int bidId) {
 			Document bidUsers = generateDocument(bidId);
 			
 			int userId = getUserId(bidId);
