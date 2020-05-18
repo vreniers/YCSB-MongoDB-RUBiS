@@ -161,7 +161,7 @@ public class WorkloadModel {
 	 * queryMapping={0=[Query [users]], 1=[Query [bids]], 2=[Query [items], Query [users]]}, secondaryIndex={0=[ users-532 [ regions756 ] ]}]
 	 */
 	public static Document getQueryUsersBidsItemsUsersAlt(MongoDatabase database, int userId) {
-		MongoCollection<Document> collection = database.getCollection("BidsUsersItems");
+		MongoCollection<Document> collection = database.getCollection("ItemsUsersRegions");
 		Document query = new Document("users._id", userId);
 		
 		//  db.BidsUsersItems.aggregate([ { $lookup: { from:"ItemsUsersRegions", localField:"id_item", foreignField:"_id", as:"UsersBidsItemsUsers" } } ] )
