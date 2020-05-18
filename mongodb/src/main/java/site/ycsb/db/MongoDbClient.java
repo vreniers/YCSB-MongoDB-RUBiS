@@ -42,7 +42,9 @@ import site.ycsb.ByteIterator;
 import site.ycsb.DB;
 import site.ycsb.DBException;
 import site.ycsb.Status;
-import site.ycsb.db.DataModel.DocumentGenerator;
+import site.ycsb.db.RUBiS.DataModel.DocumentGenerator;
+import site.ycsb.db.RUBiS.WorkloadModel;
+import site.ycsb.db.RUBiS.WorkloadModel.WorkloadGenerator;
 
 import org.bson.Document;
 import org.bson.types.Binary;
@@ -99,6 +101,11 @@ public class MongoDbClient extends DB {
 	 * Singleton data generator instance
 	 **/
 	private final DocumentGenerator dataGen = DocumentGenerator.getInstance();
+	
+	/**
+	 * Singleton workload generator instance
+	 **/
+	private final WorkloadGenerator workloadGen = WorkloadGenerator.getInstance();
 
 	/** A singleton Mongo instance. */
 	private static MongoClient mongoClient;
@@ -251,8 +258,8 @@ public class MongoDbClient extends DB {
 				MongoCollection<Document> collection = database.getCollection(collectionName);
 				
 				for(Document recordDocument: recordsPerCollection.get(collectionName)) {
-					System.out.println(collectionName);
-					System.out.println(recordDocument);
+//					System.out.println(collectionName);
+//					System.out.println(recordDocument);
 					collection.insertOne(recordDocument);
 					
 					// collection.replaceOne(new Document("_id", recordDocument.get("_id")),
@@ -480,21 +487,10 @@ public class MongoDbClient extends DB {
 	@Override
 	public Status read(String table, String key, Set<String> fields, Map<String, ByteIterator> result) {
 		try {
-			MongoCollection<Document> collection = database.getCollection(table);
-			Document query = new Document("_id", key);
-
-			FindIterable<Document> findIterable = collection.find(query);
-
-			if (fields != null) {
-				Document projection = new Document();
-				for (String field : fields) {
-					projection.put(field, INCLUDE);
-				}
-				findIterable.projection(projection);
-			}
-
-			Document queryResult = findIterable.first();
-
+			Document queryResult = workloadGen.executeQuery(database);
+			
+//			System.out.println(queryResult);
+			
 			if (queryResult != null) {
 				fillMap(result, queryResult);
 			}

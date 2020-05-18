@@ -1,4 +1,4 @@
-package site.ycsb.db;
+package site.ycsb.db.RUBiS;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -109,7 +109,7 @@ public class DataModel {
 			List<Integer> bidIds = User.getBidIds(userId);
 			createBids(bidIds,  generatedDocuments);
 			
-			System.out.println(generatedDocuments);
+//			System.out.println(generatedDocuments);
 			
 			return generatedDocuments;
 		}
@@ -188,7 +188,7 @@ public class DataModel {
 			documentPerCollection.put("Users", generateDocument(this.userId));
 			
 			// create UsersComments
-			documentPerCollection.put("UserComments", generateDocumentUserComments(this.userId));
+			documentPerCollection.put("UsersComments", generateDocumentUserComments(this.userId));
 			
 			return documentPerCollection;
 		}
@@ -227,7 +227,7 @@ public class DataModel {
 			
 			// Add region
 			Document region = Region.generateDocument(User.getRegionId(userId));
-			userDoc.append("region", region);
+			userDoc.append("regions", region);
 			
 			return userDoc;
 		}
@@ -305,12 +305,16 @@ public class DataModel {
 			
 			// create Items
 			documentPerCollection.put("Items", generateDocument(this.itemId));
+
+			// create Items | Bids
+			documentPerCollection.put("ItemsBids", generateDocumentItemsBids(this.itemId));
 			
 			// create Items | Bids | Users
 			documentPerCollection.put("ItemsBidsUsers", generateDocumentItemsBidsUsers(this.itemId));
 			
 			// create Items | Users | Regions
-			documentPerCollection.put("itemsUsersRegions", generateDocumentItemsUsersRegions(this.itemId));
+			documentPerCollection.put("ItemsUsersRegions", generateDocumentItemsUsersRegions(this.itemId));
+			
 			
 			return documentPerCollection;
 		}
@@ -322,6 +326,20 @@ public class DataModel {
 			doc.put("id_seller", getUserId(itemId));
 			
 			return doc;
+		}
+		
+		public static Document generateDocumentItemsBids(int itemId) {
+			Document itemDoc = generateDocument(itemId);
+			ArrayList<Document> bids = new ArrayList<Document>();
+			
+			// Add each bid
+			for(int bidId: getBidIds(itemId)) {
+				bids.add(Bid.generateDocument(bidId));
+			}
+			
+			itemDoc.append("bids", bids);
+			
+			return itemDoc;
 		}
 		
 		public static Document generateDocumentItemsBidsUsers(int itemId) {
@@ -342,7 +360,7 @@ public class DataModel {
 			Document itemDoc = generateDocument(itemId);
 			Document userRegion = User.generateDocumentUsersRegions(getUserId(itemId));
 			
-			itemDoc.append("user", userRegion);
+			itemDoc.append("users", userRegion);
 			
 			return itemDoc;
 		}
@@ -417,7 +435,7 @@ public class DataModel {
 			Document bidUsers = generateDocument(bidId);
 			
 			int userId = getUserId(bidId);
-			bidUsers.append("user", User.generateDocument(userId));
+			bidUsers.append("users", User.generateDocument(userId));
 			
 			return bidUsers;
 		}
