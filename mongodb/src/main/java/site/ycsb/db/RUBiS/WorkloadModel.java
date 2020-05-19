@@ -68,10 +68,18 @@ public class WorkloadModel {
 			int userId = recordId;
 			recordId++;
 			
-			return getQueryUsersBidsItemsUsers(db, userId);			
+			return getNormalizedQueryUsersBidsItemsUser(db, userId);			
 		}
 	}
 	
+	/**
+	 * ========================================
+	 *  QUERY PLAN RECOMMENDATIONS 
+	 * ========================================
+	 * 
+	 * Per sequence use the best path? or compare vs. multiple options to check cost model.
+	 * 
+	 */
 	/**
 	 * Items->Bids on [Items|Bids]
 	 */
@@ -226,7 +234,6 @@ public class WorkloadModel {
 
 	private static Document getNormalizedQuery(MongoDatabase db, String collectionOne, String collectionTwo, String localKey, String foreignKey, int id) {
 		MongoCollection<Document> collection = db.getCollection(collectionOne);
-		Document query = new Document("_id", id);
 		
 		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
 				 Aggregates.match(Filters.eq("_id", id)),
@@ -236,6 +243,59 @@ public class WorkloadModel {
 		
 		Document queryResult = aggIterable.first();
 		
+		System.out.println(queryResult);
+		
+		return queryResult;
+	}
+	
+	/**
+	 * Items->Comments->User
+	 */
+	private static Document getNormalizedQueryItemsCommentsUser(MongoDatabase db, int userId) {
+		MongoCollection<Document> collection = db.getCollection("Items");
+		
+		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
+				 Aggregates.match(Filters.eq("_id", User.getItemIds(userId).get(0))),
+	             Aggregates.lookup("Comments", "_id", "id_item", "ItemsComments"),
+	             Aggregates.lookup("Users", "ItemsComments.id_user", "_id", "CommentsUsers")
+				)
+		);
+		
+		Document queryResult = aggIterable.first();
+		
+		//TODO: verify
+		System.out.println(queryResult);
+		
+		return queryResult;
+	}
+	
+	/**
+	 * 
+	 * Users->Bids->Items->User
+	 * 
+	 * db.Users.aggregate([ {$match:{_id:0}},   
+	 * { $lookup: { from:"Bids", localField:"_id", foreignField:"id_user", as:"UsersBids" } },  
+	 * { $lookup: { from:"Items", localField:"UsersBids.id_item", foreignField:"_id", as:"BidsItems"} },  
+	 * { $lookup: { from:"Users", localField:"BidsItems.id_seller", foreignField:"_id", as:"ItemsUsers" }}  ])
+
+	 * @param db
+	 * @param userId
+	 * @return
+	 */
+	private static Document getNormalizedQueryUsersBidsItemsUser(MongoDatabase db, int userId) {
+		MongoCollection<Document> collection = db.getCollection("Users");
+		
+		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
+				 Aggregates.match(Filters.eq("_id", userId)),
+	             Aggregates.lookup("Bids", "_id", "id_item", "UsersBids"),
+	             Aggregates.lookup("Items", "UsersBids.id_item", "_id", "BidsItems"),
+	             Aggregates.lookup("Users", "BidsItems.id_seller", "_id", "ItemsUsers")
+				)
+		);
+		
+		Document queryResult = aggIterable.first();
+		
+		//TODO: verify
 		System.out.println(queryResult);
 		
 		return queryResult;
