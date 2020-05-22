@@ -49,7 +49,7 @@ import site.ycsb.db.RUBiS.DataModel.User;
  * @author vincent
  *
  */
-public class WorkloadModel {
+public class WorkloadModelLocal {
 	
 	/**
 	 * Workload generator factory.
