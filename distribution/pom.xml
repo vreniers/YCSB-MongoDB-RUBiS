@@ -34,6 +34,13 @@ LICENSE file.
     code of itself.
   </description>
   <dependencies>
+  <dependency>
+      <groupId>org.apache.htrace</groupId>
+      <artifactId>htrace-core4</artifactId>
+      <version>4.1.0-incubating</version>
+    </dependency>
+    
+    
     <dependency>
       <groupId>site.ycsb</groupId>
       <artifactId>core</artifactId>
