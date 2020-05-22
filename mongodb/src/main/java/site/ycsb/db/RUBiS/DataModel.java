@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.bson.Document;
 
 import site.ycsb.ByteIterator;
@@ -199,7 +200,11 @@ public class DataModel {
 		public static Document generateDocument(int id) {
 			Document doc = new Document("_id", id);
 		    
-			doc.put("firstName", "name");
+			doc.put("firstName", RandomStringUtils.randomAlphanumeric(20)); // 20
+			doc.put("lastName", RandomStringUtils.randomAlphanumeric(25)); // 25
+			
+			doc.put("about",  RandomStringUtils.randomAlphanumeric(70));
+			
 			doc.put("id_region", getRegionId(id));
 			
 			return doc;
@@ -327,8 +332,14 @@ public class DataModel {
 		
 		public static Document generateDocument(int itemId) {
 			Document doc = new Document("_id", itemId);
-		    
-			doc.put("productName", "name");
+			
+			doc.put("productTitle", RandomStringUtils.randomAlphanumeric(20)); // 20
+			doc.put("price", RandomStringUtils.randomAlphanumeric(5)); // 5
+			doc.put("type", RandomStringUtils.randomAlphanumeric(5)); // 5
+			doc.put("date", RandomStringUtils.randomAlphanumeric(20)); // 20
+			
+			doc.put("description",  RandomStringUtils.randomAlphanumeric(80));
+			
 			doc.put("id_seller", getUserId(itemId));
 			
 			return doc;
@@ -455,7 +466,12 @@ public class DataModel {
 		private static Document generateDocument(int bidId) {
 			Document doc = new Document("_id", bidId);
 		    
-			doc.put("price", "randomPrice");
+			// amount - 5
+			// date - 30
+			
+			doc.put("price", RandomStringUtils.randomAlphanumeric(5));
+			doc.put("date", RandomStringUtils.randomAlphanumeric(30));
+			
 			doc.put("id_user", getUserId(bidId));
 			doc.put("id_item", getItemId(bidId));
 			
@@ -516,7 +532,9 @@ public class DataModel {
 		public static Document generateDocument(int commentId) {
 			Document doc = new Document("_id", commentId);
 		    
-			doc.put("commentText", "randomText");
+			doc.put("commentTitle", RandomStringUtils.randomAlphanumeric(20)); // 20
+			doc.put("commentText", RandomStringUtils.randomAlphanumeric(70)); // 70
+			doc.put("date", RandomStringUtils.randomAlphanumeric(20)); // 20
 			doc.put("id_user", getUserId(commentId));
 			doc.put("id_item", getItemId(commentId));
 			
@@ -559,7 +577,7 @@ public class DataModel {
 		public static Document generateDocument(int id) {
 			Document doc = new Document("_id", id);
 		    
-			doc.put("regionName", "randomRegion");
+			doc.put("regionName", RandomStringUtils.randomAlphanumeric(10)); // 10
 			
 			return doc;
 		}

@@ -260,7 +260,17 @@ public class MongoDbClient extends DB {
 				for(Document recordDocument: recordsPerCollection.get(collectionName)) {
 //					System.out.println(collectionName);
 //					System.out.println(recordDocument);
-					collection.insertOne(recordDocument);
+					if (batchSize == 1) {
+						collection.insertOne(recordDocument);
+					} else {
+						bulkInserts.add(recordDocument);
+				        if (bulkInserts.size() == batchSize) {
+				          collection.insertMany(bulkInserts, INSERT_UNORDERED);
+				          bulkInserts.clear();
+				        } else {
+				          return Status.BATCHED_OK;
+				        }
+					}
 					
 					// collection.replaceOne(new Document("_id", recordDocument.get("_id")),
 					//		 recordDocument, UPDATE_WITH_UPSERT);
@@ -276,6 +286,70 @@ public class MongoDbClient extends DB {
 		}
 
 	}
+	
+	  /**
+	   * Insert a record in the database. Any field/value pairs in the specified
+	   * values HashMap will be written into the record with the specified record
+	   * key.
+	   * 
+	   * @param table
+	   *          The name of the table
+	   * @param key
+	   *          The record key of the record to insert.
+	   * @param values
+	   *          A HashMap of field/value pairs to insert in the record
+	   * @return Zero on success, a non-zero error code on error. See the {@link DB}
+	   *         class's description for a discussion of error codes.
+	   */
+	  public Status insertOld(String table, String key,
+	      Map<String, ByteIterator> values) {
+	    try {
+	      MongoCollection<Document> collection = database.getCollection(table);
+	      Document toInsert = new Document("_id", key);
+	      for (Map.Entry<String, ByteIterator> entry : values.entrySet()) {
+	        toInsert.put(entry.getKey(), entry.getValue().toArray());
+	      }
+
+	      if (batchSize == 1) {
+	        if (useUpsert) {
+	          // this is effectively an insert, but using an upsert instead due
+	          // to current inability of the framework to clean up after itself
+	          // between test runs.
+	          collection.replaceOne(new Document("_id", toInsert.get("_id")),
+	              toInsert, UPDATE_WITH_UPSERT);
+	        } else {
+	          collection.insertOne(toInsert);
+	        }
+	      } else {
+	        bulkInserts.add(toInsert);
+	        if (bulkInserts.size() == batchSize) {
+	          if (useUpsert) {
+	            List<UpdateOneModel<Document>> updates = 
+	                new ArrayList<UpdateOneModel<Document>>(bulkInserts.size());
+	            for (Document doc : bulkInserts) {
+	              updates.add(new UpdateOneModel<Document>(
+	                  new Document("_id", doc.get("_id")),
+	                  doc, UPDATE_WITH_UPSERT));
+	            }
+	            collection.bulkWrite(updates);
+	          } else {
+	            collection.insertMany(bulkInserts, INSERT_UNORDERED);
+	          }
+	          bulkInserts.clear();
+	        } else {
+	          return Status.BATCHED_OK;
+	        }
+	      }
+	      return Status.OK;
+	    } catch (Exception e) {
+	      System.err.println("Exception while trying bulk insert with "
+	          + bulkInserts.size());
+	      e.printStackTrace();
+	      return Status.ERROR;
+	    }
+
+	  }
+
 
 	/*
 	 * -------------------------------- Rubis generator elements ------------/
