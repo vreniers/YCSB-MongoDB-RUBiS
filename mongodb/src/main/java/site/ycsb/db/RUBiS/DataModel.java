@@ -455,6 +455,9 @@ public class DataModel {
 
 			// Create Bids|Users|Items
 			documentPerCollection.put("BidsUsersItems", generateDocumentBidsUsersItems(bidId));
+			
+			// Create Bids|Items
+			documentPerCollection.put("BidsItems", generateDocumentBidsItems(bidId));
 
 			return documentPerCollection;
 		}
@@ -474,6 +477,15 @@ public class DataModel {
 			return doc;
 		}
 
+		public static Document generateDocumentBidsItems(int bidId) {
+			Document bidUsers = generateDocument(bidId);
+
+			int itemId = getItemId(bidId);
+			bidUsers.append("items", Item.generateDocument(itemId));
+
+			return bidUsers;
+		}
+		
 		public static Document generateDocumentBidsUsers(int bidId) {
 			Document bidUsers = generateDocument(bidId);
 

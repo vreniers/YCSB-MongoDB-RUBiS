@@ -22,21 +22,29 @@ import site.ycsb.db.RUBiS.DataModel.User;
  * Defines several query plans that can be tested.
  * 
  * Join sequences:
- * Bids -> Users
- * Bids -> Items
+ * Bids -> Users x O
+ * Bids -> Items x O
  * 
- * Users->Regions
- * Users->Items
- * Users->Bids->items->User
- * Users->Comments
- * Users->Bids
+ * Users->Regions x O
+ * Users->Items X O
+ * Users->Bids->items OK
+ * Users->Bids->items->User x O
+ * Users->Comments x O
  * 
- * Items->Comments->Users
- * Items->Comments
- * Items->users
- * Items->Bids
+ * Items->Comments->Users x O
+ * Items->Comments x O
+ * Items->users X O
+ * Items->Bids x O
  * 
- * Region -> Users
+ * Region -> Users x OK
+ * 
+ * Recommendations:
+ *                 [ items680 [ users-820 ] ] 0.0000  0.0000  0.2778  0.0000  0.3750  0.0000  0.3333  0.3333  0.0000  0.3750  0.6667  0.6667  w: 56.6667   r: 4   QP size: 14
+                 [ bids-351 [ items680 ] ] 0.0000  0.3333  0.3333  0.0000  0.1250  0.0000  0.0000  0.0000  0.6667  0.3750  0.0000  0.0000  w: 45.0000   r: 3   QP size: 11
+                 [ items680 [ bids-351 ] ] 0.0000  0.6667  0.0000  0.0000  0.3750  0.0000  0.0000  0.0000  0.3333  0.1250  0.0000  0.0000  w: 45.0000   r: 2   QP size: 10
+              [ items680 [ comments934 ] ] 0.0000  0.0000  0.0000  1.0000  0.0000  0.0000  0.5000  0.5000  0.0000  0.0000  0.0000  0.0000  w: 65.0000   r: 5   QP size: 5
+[ items680 [ users-820 [ regions-251 ] ] ] 1.0000  0.0000  0.3889  0.0000  0.1250  1.0000  0.1667  0.1667  0.0000  0.1250  0.3333  0.3333  w: 34.3333   r: 1   QP size: 17
+                                          1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  
  * 
  * @author vincent
  *
@@ -68,7 +76,23 @@ public class WorkloadModel {
 			int userId = recordId;
 			recordId++;
 			
-			return getNormalizedQueryUsersBidsItemsUser(db, userId);			
+			System.out.println(getBidsUsers(db, userId));
+			System.out.println(getBidsItems(db, userId));
+			System.out.println(getUsersRegions(db, userId));
+			System.out.println(getUsersItems(db, userId));
+			System.out.println(getUsersBidsItems(db, userId));
+			System.out.println(getUsersBidsItemsUsers(db, userId));
+			System.out.println(getUsersComments(db, userId));
+			System.out.println(getItemsComments(db, userId));
+			System.out.println(getItemsCommentsUsers());
+			System.out.println(getItemsUsers(db, userId));
+			System.out.println(getItemsBids(db, userId));
+			System.out.println(getRegionsUsers(db, userId));
+			
+			System.out.println("----");
+			getNormalizedQueries(db, userId);
+			
+			return getUsersItems(db, userId);			
 		}
 	}
 	
@@ -80,10 +104,173 @@ public class WorkloadModel {
 	 * Per sequence use the best path? or compare vs. multiple options to check cost model.
 	 * 
 	 */
+	
 	/**
-	 * Items->Bids on [Items|Bids]
+	 * Rank: 3Valid: true, Cost:1845, Sequence: 488629942, 
+	 * QueryPlan [candidates=[ bids-351 [ items680 ] ] -> [ items680 [ users-820 ] ]],
+	 * queryMapping={0=[Query [bids]], 1=[Query [users]]}, secondaryIndex={1=[ users-820 ]}]
+	 * @return
 	 */
-	public static Document getQueryItemsBids(MongoDatabase database, int userId) {
+	public static Document getBidsUsers(MongoDatabase database, int userId) {
+		MongoCollection<Document> collection = database.getCollection("BidsItems");
+		
+		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
+				 Aggregates.match(Filters.eq("_id", User.getBidIds(userId).get(0))),
+	              Aggregates.lookup("ItemsUsers", "id_user", "users._id", "UsersBids")
+				)
+		);
+		
+		Document queryResult = aggIterable.first();
+		
+//		System.out.println(queryResult);
+		
+		return queryResult;
+	}
+	
+	// OK
+	public static Document getBidsItems(MongoDatabase database, int userId) {
+		MongoCollection<Document> collection = database.getCollection("BidsItems");
+		Document query = new Document("_id", User.getBidIds(userId).get(0));
+		
+		FindIterable<Document> findIterable = collection.find(query);
+
+		Document queryResult = findIterable.first();
+		
+		return queryResult;
+	}
+	
+	/**
+	 * OK.
+	 * 
+	 * Rank: 1Valid: true, Cost:1925, Sequence: -8863848, 
+	 * QueryPlan [candidates=[ items680 [ users-820 [ regions-251 ] ] ]], 
+	 * queryMapping={0=[Query [users], Query [regions]]}, secondaryIndex={0=[ users-820 [ regions-251 ] ]}]
+	 * @return
+	 */
+	public static Document getUsersRegions(MongoDatabase database, int userId) {
+		MongoCollection<Document> collection = database.getCollection("ItemsUsersRegions");
+		Document query = new Document("users._id", userId);
+		
+		FindIterable<Document> findIterable = collection.find(query);
+
+		Document queryResult = findIterable.first();
+		
+		return queryResult;
+	}
+	
+	/**
+	 * Rank: 2Valid: true, Cost:1875, Sequence: 2118189277, 
+	 * QueryPlan [candidates=[ items680 [ users-820 ] ]], queryMapping={0=[Query [users], Query [items]]}, secondaryIndex={0=[ users-820 ]}]
+	 * @return
+	 */
+	public static Document getUsersItems(MongoDatabase database, int userId) {
+		MongoCollection<Document> collection = database.getCollection("ItemsUsers");
+		Document query = new Document("users._id", userId);
+		
+		FindIterable<Document> findIterable = collection.find(query);
+
+		Document queryResult = findIterable.first();
+		
+		return queryResult;
+	}
+	
+	/**
+	 * Rank: 4Valid: true, Cost:11575, Sequence: -1058650145, 
+	 * QueryPlan [candidates=[ items680 [ users-820 ] ] -> [ bids-351 [ items680 ] ]], 
+	 * queryMapping={0=[Query [users]], 1=[Query [bids], Query [items]]}, secondaryIndex={0=[ users-820 ]}]
+	 * 
+	 * @param database
+	 * @param userId
+	 * @return
+	 */
+	public static Document getUsersBidsItems(MongoDatabase database, int userId) {
+		MongoCollection<Document> collection = database.getCollection("ItemsUsers");
+		
+		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
+				 Aggregates.match(Filters.eq("users._id", userId)),
+	              Aggregates.lookup("BidsItems", "users._id", "id_user", "UsersBidsItems")
+				)
+		);
+		
+		Document queryResult = aggIterable.first();
+		
+//		System.out.println(queryResult);
+		
+		return queryResult;
+	}
+	
+	/**
+	 * Rank: 9Valid: true, Cost:12230, Sequence: 562623424, 
+	 * QueryPlan [candidates=[ items680 [ users-820 ] ] -> [ bids-351 [ items680 ] ] -> [ items680 [ users-820 [ regions-251 ] ] ]], 
+	 * queryMapping={0=[Query [users]], 1=[Query [bids], Query [items]], 2=[Query [users]]}, secondaryIndex={0=[ users-820 ]}]
+	 */
+	public static Document getUsersBidsItemsUsers(MongoDatabase database, int userId) {
+		MongoCollection<Document> collection = database.getCollection("ItemsUsers");
+		
+		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
+				 Aggregates.match(Filters.eq("users._id", userId)),
+	              Aggregates.lookup("BidsItems", "users._id", "id_user", "UsersBidsItems"),
+	              Aggregates.lookup("ItemsUsersRegions", "UsersBidsItems.users.id_seller", "users._id", "UsersBidsItemsUsers")
+				)
+		);
+		
+		Document queryResult = aggIterable.first();
+		
+//		System.out.println(queryResult);
+		
+		return queryResult;
+	}
+	
+	/**
+	 * Rank: 2Valid: true, Cost:8650, Sequence: 1390978783, 
+	 * QueryPlan [candidates=[ items680 [ users-820 ] ] -> [ items680 [ comments934 ] ]], 
+	 * queryMapping={0=[Query [users]], 1=[Query [comments]]}, secondaryIndex={0=[ users-820 ], 1=[ comments934 ]}]
+	 * 
+	 */
+	public static Document getUsersComments(MongoDatabase database, int userId) {
+		MongoCollection<Document> collection = database.getCollection("ItemsUsers");
+		
+		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
+				 Aggregates.match(Filters.eq("users._id", userId)),
+	              Aggregates.lookup("ItemsComments", "users._id", "comments.id_user", "UsersComments")
+				)
+		);
+		
+		Document queryResult = aggIterable.first();
+		
+		return queryResult;
+	}
+	
+	// OK [Items|Comments]
+	public static Document getItemsComments(MongoDatabase database, int userId) {
+		MongoCollection<Document> collection = database.getCollection("ItemsComments");
+		Document query = new Document("_id", User.getItemIds(userId).get(0));
+		
+		FindIterable<Document> findIterable = collection.find(query);
+		Document queryResult = findIterable.first();
+		
+		return queryResult;
+	}
+	
+	public static Document getItemsCommentsUsers() {
+		return null;
+	}
+	
+	// OK [Items|Users|Regions]
+	public static Document getItemsUsers(MongoDatabase database, int userId) {
+		MongoCollection<Document> collection = database.getCollection("ItemsUsersRegions");
+		Document query = new Document("_id", User.getItemIds(userId).get(0));
+		
+		FindIterable<Document> findIterable = collection.find(query);
+		Document queryResult = findIterable.first();
+		
+		return queryResult;
+	}
+	
+	/**
+	 * OK on [Items|Bids]
+	 */
+	public static Document getItemsBids(MongoDatabase database, int userId) {
 		MongoCollection<Document> collection = database.getCollection("ItemsBids");
 		
 		int itemId = User.getItemIds(userId).get(0);
@@ -99,119 +286,46 @@ public class WorkloadModel {
 	}
 	
 	/**
-	 * Items->Bids on [Items|Bids|Users]
+	 * Rank: 1Valid: true, Cost:3875500, Sequence: -1642497110, 
+	 * QueryPlan [candidates=[ items680 [ users-820 [ regions-251 ] ] ]], 
+	 * queryMapping={0=[Query [regions], Query [users]]}, secondaryIndex={0=[ regions-251 ]}]
+	 * @return
 	 */
-	public static Document getQueryItemsBidsLonger(MongoDatabase database, int userId) {
-		MongoCollection<Document> collection = database.getCollection("ItemsBidsUsers");
+	public static Document getRegionsUsers(MongoDatabase database, int userId) {
+		MongoCollection<Document> collection = database.getCollection("RegionsUsers");
 		
-		int itemId = User.getItemIds(userId).get(0);
-		Document query = new Document("_id", itemId);
+		int regionId = User.getRegionId(userId);
+		Document query = new Document("users.regions._id", regionId);
 		
 //		System.out.println(query);
 		
+		//TODO find all?
 		FindIterable<Document> findIterable = collection.find(query);
 
 		Document queryResult = findIterable.first();
 		
 		return queryResult;
 	}
-	
-	/**
-	 * Users->Items on [Users|Items]
-	 */
-	public static Document getQueryUsersComments(MongoDatabase database, int userId) {
-		MongoCollection<Document> collection = database.getCollection("UsersComments");
-		Document query = new Document("_id", userId);
-		
-		FindIterable<Document> findIterable = collection.find(query);
-
-		Document queryResult = findIterable.first();
-		
-		return queryResult;
-	}
-
-	/**
-	 * Users->Bids->Items->Users on [ bids [ users [ items ] ] ] -> [ items [ users [ regions ] ] ]]  secondaryIndex={0=[ users [ items ] ]}]
-	 * 
-	 * Rank: 1Valid: true, Cost:2455, Sequence: -993239990, 
-	 * QueryPlan [candidates=[ bids62 [ users-532 [ items672 ] ] ] -> [ items672 [ users-532 [ regions756 ] ] ]], 
-	 * queryMapping={0=[Query [users], Query [bids]], 1=[Query [items], Query [users]]}, secondaryIndex={0=[ users-532 [ items672 ] ]}]
-	 */
-	public static Document getQueryUsersBidsItemsUsers(MongoDatabase database, int userId) {
-		MongoCollection<Document> collection = database.getCollection("BidsUsersItems");
-		Document query = new Document("users._id", userId);
-		
-		//  db.BidsUsersItems.aggregate([ { $lookup: { from:"ItemsUsersRegions", localField:"id_item", foreignField:"_id", as:"UsersBidsItemsUsers" } } ] )
-		// db.BidsUsersItems.aggregate([ {$match:{"users._id":0}}, { $lookup: { from:"ItemsUsersRegions", localField:"id_item", foreignField:"_id", as:"UsersBidsItemsUsers" } } ] )
-		Block<Document> printBlock = new Block<Document>() {
-	        @Override
-	        public void apply(final Document document) {
-	            System.out.println(document.toJson());
-	        }
-	    };
-	    
-		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
-				 Aggregates.match(Filters.eq("users._id", userId)),
-	              Aggregates.lookup("ItemsUsersRegions", "id_item", "_id", "UsersBidsItemsUsers")
-				)
-		);
-		
-		Document queryResult = aggIterable.first();
-		
-		System.out.println(queryResult);
-		
-		return queryResult;
-	}
-	
-	/**
-	 *  Users->Bids->Items->Users on [Items|Users|Regions] and [Bids] and [Items|Users|Regions]
-	 *  
-	 * Rank: 2Valid: true, Cost:3225, Sequence: -993239990, 
-	 * QueryPlan [candidates=[ items672 [ users-532 [ regions756 ] ] ] -> [ bids62 ] -> [ items672 [ users-532 [ regions756 ] ] ]], 
-	 * queryMapping={0=[Query [users]], 1=[Query [bids]], 2=[Query [items], Query [users]]}, secondaryIndex={0=[ users-532 [ regions756 ] ]}]
-	 */
-	public static Document getQueryUsersBidsItemsUsersAlt(MongoDatabase database, int userId) {
-		MongoCollection<Document> collection = database.getCollection("ItemsUsersRegions");
-		
-		//  db.BidsUsersItems.aggregate([ { $lookup: { from:"ItemsUsersRegions", localField:"id_item", foreignField:"_id", as:"UsersBidsItemsUsers" } } ] )
-		// db.BidsUsersItems.aggregate([ {$match:{"users._id":0}}, { $lookup: { from:"ItemsUsersRegions", localField:"id_item", foreignField:"_id", as:"UsersBidsItemsUsers" } } ] )
-		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
-				 Aggregates.match(Filters.eq("users._id", userId)),
-	              Aggregates.lookup("ItemsUsersRegions", "id_item", "_id", "UsersBidsItemsUsers")
-				)
-		);
-		
-		Document queryResult = aggIterable.first();
-		
-		System.out.println(queryResult);
-		
-		return queryResult;
-	}
-	
-	/**
-	 * Bids|User
-	 */
-	private static void getQueryBidsUser() {
-		
-	}
-	
 	
 	/**
 	 * ===============================
 	 * Normalized Query Plans
-	 * Bids -> Users
-	 * Bids -> Items
+	 * Bids -> Users x O
+	 * Bids -> Items x O
 	 * 
-	 * Users->Regions
-	 * Users->Items
-	 * Users->Bids->items->User
-	 * Users->Comments
-	 * Users->Bids
+	 * Users->Regions x O
+	 * Users->Items X O
+	 * Users->Bids->items (Missing)
+	 * Users->Bids->items->User x O
+	 * Users->Comments x O
 	 * 
-	 * Items->Comments->Users
-	 * Items->Comments
-	 * Items->users
-	 * Items->Bids
+	 * Items->Comments->Users x O
+	 * Items->Comments x O
+	 * Items->users X O
+	 * Items->Bids x O
+	 * 
+	 * Regions->User (Missing)
+	 * 
 	 * ===============================
 	 */
 	private static void getNormalizedQueries(MongoDatabase db, int userId) {
@@ -221,12 +335,12 @@ public class WorkloadModel {
 		getNormalizedQuery(db, "Users", "Regions", "id_region", "_id", userId);
 		getNormalizedQuery(db, "Users", "Items", "_id", "id_seller", userId);
 		getNormalizedQuery(db, "Users", "Comments", "_id", "id_user", userId);
-		getNormalizedQuery(db, "Users", "Bids", "_id", "id_user", userId);
 		
 		getNormalizedQuery(db, "Items", "Users", "id_seller", "_id", User.getItemIds(userId).get(0));
 		getNormalizedQuery(db, "Items", "Comments", "_id", "id_item", User.getItemIds(userId).get(0));
 		getNormalizedQuery(db, "Items", "Bids", "_id", "id_item", User.getItemIds(userId).get(0));
 		
+		getNormalizedQuery(db, "Regions", "Users", "_id", "id_region", User.getRegionId(userId));
 		// Two longer cases.
 		//TODO: Users->Bids->Items->User
 		//TODO: Items->Comments->User
