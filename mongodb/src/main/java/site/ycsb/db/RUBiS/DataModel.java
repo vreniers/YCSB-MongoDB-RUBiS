@@ -71,15 +71,12 @@ public class DataModel {
 		 * 
 		 * @return
 		 */
-		public Map<String, Set<Document>> getRegions() {
-			Map<String, Set<Document>> regionDoc = new HashMap<String, Set<Document>>();
-			regionDoc.put("Regions", new HashSet<Document>());
+		public void createRegions(Map<String, Set<Document>> generatedDoc) {
+			generatedDoc.put("Regions", new HashSet<Document>());
 
 			// create Regions.
 			for (int i = 0; i < nrOfRegions; i++)
-				merge(regionDoc, new Region(i).generateDocuments());
-
-			return regionDoc;
+				merge(generatedDoc, new Region(i).generateDocuments());
 		}
 
 		/**
@@ -108,7 +105,10 @@ public class DataModel {
 
 			List<Integer> bidIds = User.getBidIds(userId);
 			createBids(bidIds, generatedDocuments);
-
+			
+			if(userId == 0) 
+				createRegions(generatedDocuments);
+			
 //			System.out.println(generatedDocuments);
 
 			return generatedDocuments;

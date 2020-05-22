@@ -84,7 +84,7 @@ public class WorkloadModel {
 			System.out.println(getUsersBidsItemsUsers(db, userId));
 			System.out.println(getUsersComments(db, userId));
 			System.out.println(getItemsComments(db, userId));
-			System.out.println(getItemsCommentsUsers());
+			System.out.println(getItemsCommentsUsers(db, userId));
 			System.out.println(getItemsUsers(db, userId));
 			System.out.println(getItemsBids(db, userId));
 			System.out.println(getRegionsUsers(db, userId));
@@ -252,8 +252,24 @@ public class WorkloadModel {
 		return queryResult;
 	}
 	
-	public static Document getItemsCommentsUsers() {
-		return null;
+	/**
+	 * Rank: 2Valid: true, Cost:2155, Sequence: -1619451028, 
+	 * QueryPlan [candidates=[ items680 [ comments934 ] ] -> [ items680 [ users-820 ] ]],
+	 *  queryMapping={0=[Query [items], Query [comments]], 1=[Query [users]]}, secondaryIndex={}]
+	 * @return
+	 */
+	public static Document getItemsCommentsUsers(MongoDatabase database, int userId) {
+		MongoCollection<Document> collection = database.getCollection("ItemsComments");
+		
+		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
+				 Aggregates.match(Filters.eq("_id", User.getItemIds(userId).get(0))),
+	              Aggregates.lookup("ItemsUsers", "comments.id_user", "users._id", "ItemsCommentsUsers")
+				)
+		);
+		
+		Document queryResult = aggIterable.first();
+		
+		return queryResult;
 	}
 	
 	// OK [Items|Users|Regions]
@@ -292,12 +308,10 @@ public class WorkloadModel {
 	 * @return
 	 */
 	public static Document getRegionsUsers(MongoDatabase database, int userId) {
-		MongoCollection<Document> collection = database.getCollection("RegionsUsers");
+		MongoCollection<Document> collection = database.getCollection("ItemsUsersRegions");
 		
 		int regionId = User.getRegionId(userId);
 		Document query = new Document("users.regions._id", regionId);
-		
-//		System.out.println(query);
 		
 		//TODO find all?
 		FindIterable<Document> findIterable = collection.find(query);
@@ -324,7 +338,7 @@ public class WorkloadModel {
 	 * Items->users X O
 	 * Items->Bids x O
 	 * 
-	 * Regions->User (Missing)
+	 * Regions->User 
 	 * 
 	 * ===============================
 	 */
@@ -341,9 +355,11 @@ public class WorkloadModel {
 		getNormalizedQuery(db, "Items", "Bids", "_id", "id_item", User.getItemIds(userId).get(0));
 		
 		getNormalizedQuery(db, "Regions", "Users", "_id", "id_region", User.getRegionId(userId));
+		
 		// Two longer cases.
-		//TODO: Users->Bids->Items->User
-		//TODO: Items->Comments->User
+		System.out.println(getNormalizedQueryItemsCommentsUser(db, userId));
+		System.out.println(getNormalizedQueryUsersBidsItemsUser(db, userId));
+		System.out.println(getNormalizedQueryUsersBidsItems(db, userId));
 	}
 
 	private static Document getNormalizedQuery(MongoDatabase db, String collectionOne, String collectionTwo, String localKey, String foreignKey, int id) {
@@ -372,6 +388,36 @@ public class WorkloadModel {
 				 Aggregates.match(Filters.eq("_id", User.getItemIds(userId).get(0))),
 	             Aggregates.lookup("Comments", "_id", "id_item", "ItemsComments"),
 	             Aggregates.lookup("Users", "ItemsComments.id_user", "_id", "CommentsUsers")
+				)
+		);
+		
+		Document queryResult = aggIterable.first();
+		
+		//TODO: verify
+		System.out.println(queryResult);
+		
+		return queryResult;
+	}
+	
+	/**
+	 * 
+	 * Users->Bids->Items
+	 * 
+	 * db.Users.aggregate([ {$match:{_id:0}},   
+	 * { $lookup: { from:"Bids", localField:"_id", foreignField:"id_user", as:"UsersBids" } },  
+	 * { $lookup: { from:"Items", localField:"UsersBids.id_item", foreignField:"_id", as:"BidsItems"} },  
+
+	 * @param db
+	 * @param userId
+	 * @return
+	 */
+	private static Document getNormalizedQueryUsersBidsItems(MongoDatabase db, int userId) {
+		MongoCollection<Document> collection = db.getCollection("Users");
+		
+		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
+				 Aggregates.match(Filters.eq("_id", userId)),
+	             Aggregates.lookup("Bids", "_id", "id_item", "UsersBids"),
+	             Aggregates.lookup("Items", "UsersBids.id_item", "_id", "BidsItems")
 				)
 		);
 		
