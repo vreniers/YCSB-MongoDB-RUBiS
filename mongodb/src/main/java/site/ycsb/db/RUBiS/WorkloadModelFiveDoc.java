@@ -39,18 +39,18 @@ import site.ycsb.db.RUBiS.DataModel.User;
  * Region -> Users x OK
  * 
  * Recommendations:
- * 
- * gone: [ items680 [ users-820 ] ] and [ items680 [ bids-351 ] ]
         
-                 [ bids-351 [ items680 ] ] 0.0000  1.0000  0.0000  0.0000  0.3333  1.0000  0.0000  0.5000  0.5000  0.0000  0.0000  w: 90.0000   r: 2   QP size: 6
-              [ items680 [ comments934 ] ] 0.0000  0.0000  0.5000  0.5000  0.0000  0.0000  1.0000  0.0000  0.0000  0.0000  0.0000  w: 65.0000   r: 1   QP size: 3
-[ items680 [ users-820 [ regions-251 ] ] ] 1.0000  0.0000  0.5000  0.5000  0.6667  0.0000  0.0000  0.5000  0.5000  1.0000  1.0000  w: 90.0000   r: 3   QP size: 9
+                 [ items680 [ users-820 ] ] 0.0000  0.0000  0.3333  0.3333  0.2778  0.0000  0.0000  0.3750  0.3750  0.6667  0.6667  w: 56.6667   r: 4   QP size: 14
+                 [ bids-351 [ items680 ] ] 0.0000  0.3333  0.0000  0.0000  0.3333  0.6667  0.0000  0.3750  0.1250  0.0000  0.0000  w: 45.0000   r: 3   QP size: 11
+                 [ items680 [ bids-351 ] ] 0.0000  0.6667  0.0000  0.0000  0.0000  0.3333  0.0000  0.1250  0.3750  0.0000  0.0000  w: 45.0000   r: 2   QP size: 10
+              [ items680 [ comments934 ] ] 0.0000  0.0000  0.5000  0.5000  0.0000  0.0000  1.0000  0.0000  0.0000  0.0000  0.0000  w: 65.0000   r: 5   QP size: 5
+[ items680 [ users-820 [ regions-251 ] ] ] 1.0000  0.0000  0.1667  0.1667  0.3889  0.0000  0.0000  0.1250  0.1250  0.3333  0.3333  w: 33.3333   r: 1   QP size: 16
                                           1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  1.0000  
  * 
  * @author vincent
  *
  */
-public class WorkloadModel {
+public class WorkloadModelFiveDoc {
 	
 	/**
 	 * Workload generator factory.
@@ -85,11 +85,11 @@ public class WorkloadModel {
 //			result = getUsersItems(db, userId);
 //			result = getUsersBidsItems(db, userId);
 //			result = getUsersBidsItemsUsers(db, userId);
-//			result = getUsersComments(db, userId);
+			result = getUsersComments(db, userId);
 //			result = getItemsComments(db, userId);
 //			result = getItemsCommentsUsers(db, userId);
 //			result = getItemsUsers(db, userId);
-			result = getItemsBids(db, userId);
+//			result = getItemsBids(db, userId);
 //			
 //			System.out.println("----");
 //			result = getNormalizedQuery(db, "Bids", "Users", "id_user", "_id", User.getBidIds(userId).get(0));
@@ -126,8 +126,9 @@ public class WorkloadModel {
 	 */
 	
 	/**
-	 *  OK
-	 *  
+	 * Rank: 3Valid: true, Cost:1845, Sequence: 488629942, 
+	 * QueryPlan [candidates=[ bids-351 [ items680 ] ] -> [ items680 [ users-820 ] ]],
+	 * queryMapping={0=[Query [bids]], 1=[Query [users]]}, secondaryIndex={1=[ users-820 ]}]
 	 * @return
 	 */
 	public static Document getBidsUsers(MongoDatabase database, int userId) {
@@ -139,7 +140,7 @@ public class WorkloadModel {
 		
 //		System.out.println(queryResult);
 		
-		collection = database.getCollection("ItemsUsersRegions");
+		collection = database.getCollection("ItemsUsers");
 		query = new Document("users._id", queryResult.get("id_user"));
 		
 		// loop over result set to make sure we get all.
@@ -163,6 +164,9 @@ public class WorkloadModel {
 	/**
 	 * OK.
 	 * 
+	 * Rank: 1Valid: true, Cost:1925, Sequence: -8863848, 
+	 * QueryPlan [candidates=[ items680 [ users-820 [ regions-251 ] ] ]], 
+	 * queryMapping={0=[Query [users], Query [regions]]}, secondaryIndex={0=[ users-820 [ regions-251 ] ]}]
 	 * @return
 	 */
 	public static Document getUsersRegions(MongoDatabase database, int userId) {
@@ -177,12 +181,12 @@ public class WorkloadModel {
 	}
 	
 	/**
-	 * OK
-	 * 
+	 * Rank: 2Valid: true, Cost:1875, Sequence: 2118189277, 
+	 * QueryPlan [candidates=[ items680 [ users-820 ] ]], queryMapping={0=[Query [users], Query [items]]}, secondaryIndex={0=[ users-820 ]}]
 	 * @return
 	 */
 	public static Document getUsersItems(MongoDatabase database, int userId) {
-		MongoCollection<Document> collection = database.getCollection("ItemsUsersRegions");
+		MongoCollection<Document> collection = database.getCollection("ItemsUsers");
 		Document query = new Document("users._id", userId);
 		
 		collection.find(query).forEach(printBlock);
@@ -191,14 +195,16 @@ public class WorkloadModel {
 	}
 	
 	/**
-	 * OK
+	 * Rank: 4Valid: true, Cost:11575, Sequence: -1058650145, 
+	 * QueryPlan [candidates=[ items680 [ users-820 ] ] -> [ bids-351 [ items680 ] ]], 
+	 * queryMapping={0=[Query [users]], 1=[Query [bids], Query [items]]}, secondaryIndex={0=[ users-820 ]}]
 	 * 
 	 * @param database
 	 * @param userId
 	 * @return
 	 */
 	public static Document getUsersBidsItems(MongoDatabase database, int userId) {
-		MongoCollection<Document> collection = database.getCollection("ItemsUsersRegions");
+		MongoCollection<Document> collection = database.getCollection("ItemsUsers");
 		Document query = new Document("users._id", userId);
 		FindIterable<Document> findIterable = collection.find(query);
 		Document queryResult = findIterable.first();
@@ -221,7 +227,7 @@ public class WorkloadModel {
 	 * queryMapping={0=[Query [users]], 1=[Query [bids], Query [items]], 2=[Query [users]]}, secondaryIndex={0=[ users-820 ]}]
 	 */
 	public static Document getUsersBidsItemsUsers(MongoDatabase database, int userId) {
-		MongoCollection<Document> collection = database.getCollection("ItemsUsersRegions");
+		MongoCollection<Document> collection = database.getCollection("ItemsUsers");
 		Document query = new Document("users._id", userId);
 		FindIterable<Document> findIterable = collection.find(query);
 		Document queryResult = findIterable.first();
@@ -238,7 +244,7 @@ public class WorkloadModel {
 		// OK -> Only 1 seller_id anyway (checked)
 		
 		id = ((Document) queryResult.get("items")).get("id_seller");
-		collection = database.getCollection("ItemsUsersRegions");
+		collection = database.getCollection("ItemsUsers");
 		query = new Document("users._id", id);
 		findIterable = collection.find(query);
 		queryResult = findIterable.first();
@@ -255,7 +261,7 @@ public class WorkloadModel {
 	 * 
 	 */
 	public static Document getUsersComments(MongoDatabase database, int userId) {
-		MongoCollection<Document> collection = database.getCollection("ItemsUsersRegions");
+		MongoCollection<Document> collection = database.getCollection("ItemsUsers");
 		Document query = new Document("users._id", userId);
 		FindIterable<Document> findIterable = collection.find(query);
 		Document queryResult = findIterable.first();
@@ -301,7 +307,7 @@ public class WorkloadModel {
 		
 		// OK Only 1 probably. Item - 2 comments - User has more.
 		Object id = ((ArrayList<Document>) queryResult.get("comments")).get(0).get("id_user");
-		collection = database.getCollection("ItemsUsersRegions");
+		collection = database.getCollection("ItemsUsers");
 		query = new Document("users._id", id);
 		findIterable = collection.find(query);
 		queryResult = findIterable.first();
@@ -323,16 +329,37 @@ public class WorkloadModel {
 	}
 	
 	/**
-	 * OK
+	 * OK on [Items|Bids]
 	 */
 	public static Document getItemsBids(MongoDatabase database, int userId) {
-		MongoCollection<Document> collection = database.getCollection("BidsItems");
+		MongoCollection<Document> collection = database.getCollection("ItemsBids");
 		
 		int itemId = User.getItemIds(userId).get(0);
-		Document query = new Document("items._id", itemId);
+		Document query = new Document("_id", itemId);
 		
 //		System.out.println(query);
 		
+		FindIterable<Document> findIterable = collection.find(query);
+
+		Document queryResult = findIterable.first();
+		
+		return queryResult;
+	}
+	
+	/**
+	 * Rank: 1Valid: true, Cost:3875500, Sequence: -1642497110, 
+	 * QueryPlan [candidates=[ items680 [ users-820 [ regions-251 ] ] ]], 
+	 * queryMapping={0=[Query [regions], Query [users]]}, secondaryIndex={0=[ regions-251 ]}]
+	 * @return
+	 */
+	public static Document getRegionsUsers(MongoDatabase database, int userId) {
+		MongoCollection<Document> collection = database.getCollection("ItemsUsersRegions");
+		
+		int regionId = User.getRegionId(userId);
+		Document query = new Document("users.regions._id", regionId);
+		
+		//TODO find all?
+		// loop over result set to make sure we get all.
 		collection.find(query).forEach(printBlock);
 		
 		return query;
