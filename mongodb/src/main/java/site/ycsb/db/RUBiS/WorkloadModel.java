@@ -76,25 +76,43 @@ public class WorkloadModel {
 			int userId = recordId;
 			recordId++;
 			
-			System.out.println(getBidsUsers(db, userId));
-			System.out.println(getBidsItems(db, userId));
-			System.out.println(getUsersRegions(db, userId));
-			System.out.println(getUsersItems(db, userId));
-			System.out.println(getUsersBidsItems(db, userId));
-			System.out.println(getUsersBidsItemsUsers(db, userId));
-			System.out.println(getUsersComments(db, userId));
-			System.out.println(getItemsComments(db, userId));
-			System.out.println(getItemsCommentsUsers(db, userId));
-			System.out.println(getItemsUsers(db, userId));
-			System.out.println(getItemsBids(db, userId));
-			System.out.println(getRegionsUsers(db, userId));
+			Document result;
 			
-			System.out.println("----");
-			getNormalizedQueries(db, userId);
+//			result = getBidsUsers(db, userId);
+//			result = getBidsItems(db, userId);
+//			result = getUsersRegions(db, userId);
+//			result = getUsersItems(db, userId);
+//			result = getUsersBidsItems(db, userId);
+//			result = getUsersBidsItemsUsers(db, userId);
+//			result = getUsersComments(db, userId);
+//			result = getItemsComments(db, userId);
+//			result = getItemsCommentsUsers(db, userId);
+//			result = getItemsUsers(db, userId);
+//			result = getItemsBids(db, userId);
+//			result = getRegionsUsers(db, userId);
+//			
+//			System.out.println("----");
+//			result = getNormalizedQuery(db, "Bids", "Users", "id_user", "_id", User.getBidIds(userId).get(0));
+//			result = getNormalizedQuery(db, "Bids", "Items", "id_item", "_id", User.getBidIds(userId).get(0));
+//			
+//			result = getNormalizedQuery(db, "Users", "Regions", "id_region", "_id", userId);
+//			result = getNormalizedQuery(db, "Users", "Items", "_id", "id_seller", userId);
+//			result = getNormalizedQuery(db, "Users", "Comments", "_id", "id_user", userId);
+//			
+//			result = getNormalizedQuery(db, "Items", "Users", "id_seller", "_id", User.getItemIds(userId).get(0));
+//			result = getNormalizedQuery(db, "Items", "Comments", "_id", "id_item", User.getItemIds(userId).get(0));
+//			result = getNormalizedQuery(db, "Items", "Bids", "_id", "id_item", User.getItemIds(userId).get(0));
+//			
+//			result = getNormalizedQuery(db, "Regions", "Users", "_id", "id_region", User.getRegionId(userId));
+//			
+//			result = getNormalizedQueryItemsCommentsUser(db, userId);
+//			result = getNormalizedQueryUsersBidsItemsUser(db, userId);
+			result = getNormalizedQueryUsersBidsItems(db, userId);
 			
-			getNormalizedQuery(db, "Users", "Items", "_id", "id_seller", userId);
+			System.out.println(result);
+
 			
-			return getUsersItems(db, userId);			
+			return result;			
 		}
 	}
 	
@@ -115,16 +133,18 @@ public class WorkloadModel {
 	 */
 	public static Document getBidsUsers(MongoDatabase database, int userId) {
 		MongoCollection<Document> collection = database.getCollection("BidsItems");
+		Document query = new Document("_id", User.getBidIds(userId).get(0));
 		
-		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
-				 Aggregates.match(Filters.eq("_id", User.getBidIds(userId).get(0))),
-	              Aggregates.lookup("ItemsUsers", "id_user", "users._id", "UsersBids")
-				)
-		);
-		
-		Document queryResult = aggIterable.first();
+		FindIterable<Document> findIterable = collection.find(query);
+		Document queryResult = findIterable.first();
 		
 //		System.out.println(queryResult);
+		
+		collection = database.getCollection("ItemsUsers");
+		query = new Document("users._id", queryResult.get("id_user"));
+		
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
 		
 		return queryResult;
 	}
@@ -187,14 +207,17 @@ public class WorkloadModel {
 	 */
 	public static Document getUsersBidsItems(MongoDatabase database, int userId) {
 		MongoCollection<Document> collection = database.getCollection("ItemsUsers");
+		Document query = new Document("users._id", userId);
+		FindIterable<Document> findIterable = collection.find(query);
+		Document queryResult = findIterable.first();
 		
-		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
-				 Aggregates.match(Filters.eq("users._id", userId)),
-	              Aggregates.lookup("BidsItems", "users._id", "id_user", "UsersBidsItems")
-				)
-		);
+//		System.out.println(queryResult);
 		
-		Document queryResult = aggIterable.first();
+		Object id = ((Document) queryResult.get("users")).get("_id");
+		collection = database.getCollection("BidsItems");
+		query = new Document("id_user", id);
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
 		
 //		System.out.println(queryResult);
 		
@@ -203,20 +226,30 @@ public class WorkloadModel {
 	
 	/**
 	 * Rank: 9Valid: true, Cost:12230, Sequence: 562623424, 
-	 * QueryPlan [candidates=[ items680 [ users-820 ] ] -> [ bids-351 [ items680 ] ] -> [ items680 [ users-820 [ regions-251 ] ] ]], 
+	 * QueryPlan [candidates=[ items680 [ users-820 ] ] -> [ bids-351 [ items680 ] ] -> [ items680 [ users-820 [ regions-251 ] ] ]], (changed last one)
 	 * queryMapping={0=[Query [users]], 1=[Query [bids], Query [items]], 2=[Query [users]]}, secondaryIndex={0=[ users-820 ]}]
 	 */
 	public static Document getUsersBidsItemsUsers(MongoDatabase database, int userId) {
 		MongoCollection<Document> collection = database.getCollection("ItemsUsers");
+		Document query = new Document("users._id", userId);
+		FindIterable<Document> findIterable = collection.find(query);
+		Document queryResult = findIterable.first();
 		
-		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
-				 Aggregates.match(Filters.eq("users._id", userId)),
-	              Aggregates.lookup("BidsItems", "users._id", "id_user", "UsersBidsItems"),
-	              Aggregates.lookup("ItemsUsersRegions", "UsersBidsItems.users.id_seller", "users._id", "UsersBidsItemsUsers")
-				)
-		);
+//		System.out.println(queryResult);
 		
-		Document queryResult = aggIterable.first();
+		Object id = ((Document) queryResult.get("users")).get("_id");
+		collection = database.getCollection("BidsItems");
+		query = new Document("id_user", id);
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
+		
+//		System.out.println(queryResult);
+		
+		id = ((Document) queryResult.get("items")).get("id_seller");
+		collection = database.getCollection("ItemsUsers");
+		query = new Document("users._id", id);
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
 		
 //		System.out.println(queryResult);
 		
@@ -231,14 +264,19 @@ public class WorkloadModel {
 	 */
 	public static Document getUsersComments(MongoDatabase database, int userId) {
 		MongoCollection<Document> collection = database.getCollection("ItemsUsers");
+		Document query = new Document("users._id", userId);
+		FindIterable<Document> findIterable = collection.find(query);
+		Document queryResult = findIterable.first();
 		
-		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
-				 Aggregates.match(Filters.eq("users._id", userId)),
-	              Aggregates.lookup("ItemsComments", "users._id", "comments.id_user", "UsersComments")
-				)
-		);
+//		System.out.println(queryResult);
 		
-		Document queryResult = aggIterable.first();
+		Object id = ((Document) queryResult.get("users")).get("_id");
+		collection = database.getCollection("ItemsComments");
+		query = new Document("comments.id_user", id);
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
+		
+//		System.out.println(queryResult);
 		
 		return queryResult;
 	}
@@ -261,15 +299,21 @@ public class WorkloadModel {
 	 * @return
 	 */
 	public static Document getItemsCommentsUsers(MongoDatabase database, int userId) {
-		MongoCollection<Document> collection = database.getCollection("ItemsComments");
+		MongoCollection<Document>  collection = database.getCollection("ItemsComments");
+		Document query = new Document("_id", User.getCommentIds(userId).get(0));
+		FindIterable<Document> findIterable = collection.find(query);
+		Document queryResult = findIterable.first();
 		
-		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
-				 Aggregates.match(Filters.eq("_id", User.getItemIds(userId).get(0))),
-	              Aggregates.lookup("ItemsUsers", "comments.id_user", "users._id", "ItemsCommentsUsers")
-				)
-		);
+//		System.out.println(queryResult);
 		
-		Document queryResult = aggIterable.first();
+		//TODO get all?
+		Object id = ((ArrayList<Document>) queryResult.get("comments")).get(0).get("id_user");
+		collection = database.getCollection("ItemsUsers");
+		query = new Document("users._id", id);
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
+		
+		System.out.println(queryResult);
 		
 		return queryResult;
 	}
@@ -366,16 +410,20 @@ public class WorkloadModel {
 
 	private static Document getNormalizedQuery(MongoDatabase db, String collectionOne, String collectionTwo, String localKey, String foreignKey, int id) {
 		MongoCollection<Document> collection = db.getCollection(collectionOne);
+		Document query = new Document("_id", id);
 		
-		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
-				 Aggregates.match(Filters.eq("_id", id)),
-	             Aggregates.lookup(collectionTwo, localKey, foreignKey, "JOIN")
-				)
-		);
+		FindIterable<Document> findIterable = collection.find(query);
+		Document queryResult = findIterable.first();
 		
-		Document queryResult = aggIterable.first();
+//		System.out.println(queryResult);
 		
-		System.out.println(queryResult);
+		collection = db.getCollection(collectionTwo);
+		query = new Document(foreignKey, queryResult.get(localKey));
+		
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
+		
+//		System.out.println(queryResult);
 		
 		return queryResult;
 	}
@@ -384,19 +432,26 @@ public class WorkloadModel {
 	 * Items->Comments->User
 	 */
 	private static Document getNormalizedQueryItemsCommentsUser(MongoDatabase db, int userId) {
-		MongoCollection<Document> collection = db.getCollection("Items");
+		MongoCollection<Document>  collection = db.getCollection("Items");
+		Document query = new Document("_id", User.getItemIds(userId).get(0));
+		FindIterable<Document> findIterable = collection.find(query);
+		Document queryResult = findIterable.first();
 		
-		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
-				 Aggregates.match(Filters.eq("_id", User.getItemIds(userId).get(0))),
-	             Aggregates.lookup("Comments", "_id", "id_item", "ItemsComments"),
-	             Aggregates.lookup("Users", "ItemsComments.id_user", "_id", "CommentsUsers")
-				)
-		);
+//		System.out.println(queryResult);
 		
-		Document queryResult = aggIterable.first();
+		collection = db.getCollection("Comments");
+		query = new Document("id_item", queryResult.get("_id"));
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
 		
-		//TODO: verify
-		System.out.println(queryResult);
+//		System.out.println(queryResult);
+		
+		collection = db.getCollection("Users");
+		query = new Document("_id", queryResult.get("id_user"));
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
+		
+//		System.out.println(queryResult);
 		
 		return queryResult;
 	}
@@ -414,19 +469,27 @@ public class WorkloadModel {
 	 * @return
 	 */
 	private static Document getNormalizedQueryUsersBidsItems(MongoDatabase db, int userId) {
-		MongoCollection<Document> collection = db.getCollection("Users");
+		MongoCollection<Document>  collection = db.getCollection("Users");
+		Document query = new Document("_id", userId);
+		FindIterable<Document> findIterable = collection.find(query);
+		Document queryResult = findIterable.first();
 		
-		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
-				 Aggregates.match(Filters.eq("_id", userId)),
-	             Aggregates.lookup("Bids", "_id", "id_item", "UsersBids"),
-	             Aggregates.lookup("Items", "UsersBids.id_item", "_id", "BidsItems")
-				)
-		);
+//		System.out.println(queryResult);
 		
-		Document queryResult = aggIterable.first();
+		collection = db.getCollection("Bids");
+		query = new Document("id_user", queryResult.get("_id"));
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
 		
-		//TODO: verify
-		System.out.println(queryResult);
+//		System.out.println(queryResult);
+		
+		//TODO query all?
+		collection = db.getCollection("Items");
+		query = new Document("_id", queryResult.get("id_item"));
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
+		
+//		System.out.println(queryResult);
 		
 		return queryResult;
 	}
@@ -445,20 +508,35 @@ public class WorkloadModel {
 	 * @return
 	 */
 	private static Document getNormalizedQueryUsersBidsItemsUser(MongoDatabase db, int userId) {
-		MongoCollection<Document> collection = db.getCollection("Users");
+		MongoCollection<Document>  collection = db.getCollection("Users");
+		Document query = new Document("_id", userId);
+		FindIterable<Document> findIterable = collection.find(query);
+		Document queryResult = findIterable.first();
 		
-		AggregateIterable<Document> aggIterable = collection.aggregate(Arrays.asList(
-				 Aggregates.match(Filters.eq("_id", userId)),
-	             Aggregates.lookup("Bids", "_id", "id_item", "UsersBids"),
-	             Aggregates.lookup("Items", "UsersBids.id_item", "_id", "BidsItems"),
-	             Aggregates.lookup("Users", "BidsItems.id_seller", "_id", "ItemsUsers")
-				)
-		);
+//		System.out.println(queryResult);
 		
-		Document queryResult = aggIterable.first();
+		collection = db.getCollection("Bids");
+		query = new Document("id_user", queryResult.get("_id"));
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
 		
-		//TODO: verify
-		System.out.println(queryResult);
+//		System.out.println(queryResult);
+		
+		//TODO query all?
+		collection = db.getCollection("Items");
+		query = new Document("_id", queryResult.get("id_item"));
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
+		
+//		System.out.println(queryResult);
+		
+		collection = db.getCollection("Users");
+		query = new Document("_id", queryResult.get("id_seller"));
+		findIterable = collection.find(query);
+		queryResult = findIterable.first();
+		
+//		System.out.println(queryResult);
+		
 		
 		return queryResult;
 	}
