@@ -16,5 +16,8 @@ permissions and limitations under the License. See accompanying
 LICENSE file.
 -->
 
+YCSB for online auction case in MongoDB 
+============================
+
 Extension of YCSB benchmark which changed MongoDB's data model and workload to that of an online auction case.
-This was used to evaluate the DBSR recommender tool.
+The workload and data model are only partially implemented, and were used for the evaluation of a NoSQL document schema recommender tool (DBSR).
