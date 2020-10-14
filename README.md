@@ -16,7 +16,7 @@ permissions and limitations under the License. See accompanying
 LICENSE file.
 -->
 
-YCSB for online auction case in MongoDB 
+YCSB fork
 ============================
 
 Extension of YCSB benchmark which changed MongoDB's data model and workload to that of an online auction case.
